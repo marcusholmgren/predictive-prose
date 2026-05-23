@@ -1,7 +1,15 @@
 [project]
 name = "n-gram-app"
 version = "0.1.0"
-description = "Add your description here"
+description = "A simple n-gram application for text generation."
+authors = [
+    { name = "Marcus Holmgren", email = "marcus.holmgren1@gmail.com" },
+]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]

@@ -2,11 +2,13 @@
 """
 Language model with n-gram successor map
 """
-import random
-from typing import Dict, List
+from collections import defaultdict, deque
 import pickle
+import random
 
-NGramModel = Dict[tuple, List[str]]
+# Modern PEP 695 Type Alias (Python 3.12+)
+type NGramModel = dict[tuple[str, ...], list[str]]
+
 
 def build_model(file_path: str, n_gram_size: int) -> NGramModel:
     """
@@ -17,38 +19,44 @@ def build_model(file_path: str, n_gram_size: int) -> NGramModel:
         n_gram_size (int): The size of the n-grams.
 
     Returns:
-        dict: A dictionary representing the n-gram model.
+        NGramModel: A dictionary representing the n-gram model.
+
+    Raises:
+        ValueError: If n_gram_size is less than 1.
+        FileNotFoundError: If the input file does not exist.
     """
-    successor_map = {}
-    try:
-        with open(file_path, 'r') as reader:
-            window = []
-            for line in reader:
-                for word in line.split():
-                    clean_word = word.strip('.;,-“’”:?—‘!()_').lower()
-                    if not clean_word:
-                        continue
-                    window.append(clean_word)
+    if n_gram_size < 1:
+        raise ValueError("n-gram size must be at least 1.")
 
-                    if len(window) == n_gram_size:
-                        key = tuple(window[:-1])
-                        value = window[-1]
-                        if key in successor_map:
-                            successor_map[key].append(value)
-                        else:
-                            successor_map[key] = [value]
-                        window.pop(0)
-    except FileNotFoundError:
-        print(f"Error: File not found at {file_path}")
-        return None
-    return successor_map
+    successor_map: dict[tuple[str, ...], list[str]] = defaultdict(list)
+    
+    # Explicit encoding avoids cross-platform locale issues
+    with open(file_path, 'r', encoding='utf-8') as reader:
+        # Use deque for idiomatic and fast sliding window
+        window: deque[str] = deque(maxlen=n_gram_size)
+        
+        for line in reader:
+            for word in line.split():
+                clean_word = word.strip('.;,-“’”:?—‘!()_').lower()
+                if not clean_word:
+                    continue
+                window.append(clean_word)
 
-def generate_text(model: NGramModel, initial_words: List[str], num_words_to_generate: int) -> str:
+                if len(window) == n_gram_size:
+                    key = tuple(window)[:-1]
+                    value = window[-1]
+                    successor_map[key].append(value)
+
+    # Convert back to standard dict for clean output / serialization
+    return dict(successor_map)
+
+
+def generate_text(model: NGramModel, initial_words: list[str], num_words_to_generate: int) -> str:
     """
     Generates text using the n-gram model.
 
     Args:
-        model (dict): The n-gram model.
+        model (NGramModel): The n-gram model.
         initial_words (list): A list of initial words.
         num_words_to_generate (int): The number of words to generate.
 
@@ -71,6 +79,7 @@ def generate_text(model: NGramModel, initial_words: List[str], num_words_to_gene
         else:
             generated_text.append(f"\n(Sequence { ' '.join(current_words) } not in model, stopping.)")
             break
+            
     return " ".join(generated_text)
 
 
@@ -82,7 +91,7 @@ def load_model(model_path: str) -> NGramModel:
         model_path (str): Name and path of model to load.
 
     Returns:
-        dict: A dictionary representing the n-gram model.
+        NGramModel: A dictionary representing the n-gram model.
     """
     with open(model_path, 'rb') as f:
         return pickle.load(f)
